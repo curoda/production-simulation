@@ -1,93 +1,129 @@
-import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import streamlit as st
+from collections import deque
+import math
 
-# Function to simulate the production process
-def run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog):
-    backlog = initial_backlog  # Orders not yet started (Backlog)
-    wip = []  # Orders in progress with (order_id, days_left)
-    completed_orders_count = 0  # Completed orders count
-    daily_backlog = [backlog]  # Track backlog per day
-    daily_wip = [len(wip)]  # Track WIP per day
-    daily_completed_orders = [completed_orders_count]  # Track completed orders per day
-    customer_wait_times = []
-    order_id = 1  # Unique identifier for each order
+def load_data(file_path):
+    try:
+        return pd.read_csv(file_path)
+    except FileNotFoundError:
+        st.error("The specified file was not found. Please check the file path and try again.")
+        return None
+    except pd.errors.EmptyDataError:
+        st.error("The file is empty. Please provide a valid CSV file.")
+        return None
+    except pd.errors.ParserError:
+        st.error("The file could not be parsed. Please ensure it is a valid CSV file.")
+        return None
 
-    # Day 0: Move orders to WIP from both backlog and new customer orders to fully utilize production lines
-    orders_to_start = min(num_production_lines, backlog + new_customer_orders_per_day)
-    backlog = max(0, backlog + new_customer_orders_per_day - orders_to_start)
-    wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
-    order_id += orders_to_start
+def initialize_state():
+    return {
+        'backlog': deque(),
+        'wip': deque(),
+        'completed_orders': [],
+        'order_counter': 1,
+    }
 
-    for day in range(1, num_days + 1):
-        # 1. Decrease days left for WIP orders and move completed orders out of WIP
-        completed_today = [order for (order, days_left) in wip if days_left <= 0]
-        completed_orders_count += len(completed_today)
-        wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
+def add_new_orders(state, new_orders):
+    for _ in range(new_orders):
+        state['backlog'].append(f"Order{state['order_counter']}")
+        state['order_counter'] += 1
 
-        # 2. Move new orders from backlog to WIP if production lines are available
-        idle_lines_today = max(0, num_production_lines - len(wip))
-        orders_to_start = min(idle_lines_today, backlog)
-        wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
-        backlog -= orders_to_start  # Decrement backlog as orders are moved to WIP
-        order_id += orders_to_start
+def process_orders(state, production_lines, production_cycle_time):
+    # Reduce remaining days for WIP orders
+    new_completed_orders = []
+    for i in range(len(state['wip'])):
+        order, days_left = state['wip'][i]
+        days_left -= 1
+        if days_left > 0:
+            state['wip'][i] = (order, days_left)
+        else:
+            new_completed_orders.append(order)
+    
+    # Remove completed orders from WIP
+    state['wip'] = deque([(order, days_left) for order, days_left in state['wip'] if days_left > 0])
 
-        # 3. Add new customer orders to backlog (AFTER moving orders to WIP)
-        backlog += new_customer_orders_per_day
+    # Mark completed orders
+    state['completed_orders'].extend(new_completed_orders)
 
-        # 4. Track states for the day
-        daily_backlog.append(backlog)
-        daily_wip.append(len(wip))
-        daily_completed_orders.append(completed_orders_count)
+    # Move backlog to WIP if available lines
+    current_wip_count = len(state['wip'])
+    idle_production_lines = max(production_lines - current_wip_count, 0)
+    orders_pulled_from_backlog = 0
+    while state['backlog'] and idle_production_lines > 0:
+        order = state['backlog'].popleft()
+        state['wip'].append((order, production_cycle_time))
+        idle_production_lines -= 1
+        orders_pulled_from_backlog += 1
 
-        # 5. Calculate customer wait time based on the backlog and production capacity
-        customer_wait_times.append(backlog / max(1, num_production_lines * production_cycle_time))
+    return new_completed_orders, orders_pulled_from_backlog, idle_production_lines
 
-    # Convert results to a DataFrame for display
-    return pd.DataFrame({
-        'Day': list(range(0, num_days + 1)),  # Adjusting for Day 0
-        'Backlog (New Orders)': daily_backlog,
-        'WIP Orders': daily_wip,
-        'Completed Orders': daily_completed_orders,
-        'Customer Wait Time (days)': [0] + customer_wait_times  # No wait on Day 0
-    })
+def estimated_days_to_clear_backlog(backlog_size, production_lines, production_cycle_time):
+    if production_lines == 0:
+        return float('inf')
+    return math.ceil(backlog_size / production_lines) * production_cycle_time
 
-# Streamlit app interface
-st.title("Production Simulation App")
+def main():
+    st.title("Production Simulation App")
+    st.sidebar.write("### Sample CSV File Format")
+    st.sidebar.write("""
+    Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders
+    2023-01-01,5,3,10
+    2023-01-02,5,3,8
+    2023-01-03,5,3,12
+    ...
+    """)
+    st.sidebar.download_button(
+        label="Download Sample CSV",
+        data="Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders\n2023-01-01,5,3,10\n2023-01-02,5,3,8\n2023-01-03,5,3,12\n",
+        file_name="sample_input.csv",
+        mime="text/csv"
+    )
+    uploaded_file = st.sidebar.file_uploader("Upload Input CSV File", type="csv")
 
-# Sidebar for input elements
-with st.sidebar:
-    st.header("Simulation Inputs")
-    production_cycle_time = st.number_input('Production Cycle Time (in days)', min_value=0.1, value=5.0, step=0.1, format="%.1f")
-    num_production_lines = st.number_input('Number of Production Lines', min_value=1, value=3)
-    new_customer_orders_per_day = st.number_input('Number of New Customer Orders per Day', min_value=0.1, value=1.0, step=0.1, format="%.1f")
-    num_days = st.slider('Simulation Time Frame (Number of Business Days)', min_value=1, max_value=100, value=30)
-    initial_backlog = st.number_input('Initial Backlog of Orders', min_value=0, value=20)
+    if uploaded_file:
+        data = load_data(uploaded_file)
+        if data is not None:
+            state = initialize_state()
+            output_data = []
 
-# Run the simulation
-if st.button('Run Simulation'):
-    result = run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog)
+            for row in data.itertuples():
+                date = row.Date
+                production_cycle_time = int(row.Production_Cycle_Time)
+                production_lines = int(row.Number_of_Production_Lines)
+                new_orders = int(row.Number_of_New_Customer_Orders)
 
-    # Output results
-    st.subheader("Simulation Results")
-    st.dataframe(result)
+                # Validate data
+                if production_cycle_time <= 0 or production_lines < 0 or new_orders < 0:
+                    st.error(f"Invalid data on {date}: All values must be non-negative and production cycle time must be greater than zero.")
+                    continue
 
-    # Plotting backlog, WIP, and completed orders
-    st.subheader("Order States Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Backlog (New Orders)'], label='Backlog (New Orders)')
-    ax.plot(result['Day'], result['WIP Orders'], label='WIP Orders')
-    ax.plot(result['Day'], result['Completed Orders'], label='Completed Orders')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Orders')
-    ax.legend()
-    st.pyplot(fig)
+                backlog_from_previous_day = len(state['backlog'])
 
-    # Plotting customer wait times separately
-    st.subheader("Customer Wait Times Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Wait Time (days)')
-    ax.legend()
-    st.pyplot(fig)
+                add_new_orders(state, new_orders)
+                completed_orders, orders_pulled_from_backlog, idle_lines = process_orders(
+                    state, production_lines, production_cycle_time)
+
+                remaining_work_days = "; ".join([f"{order}:{days_left}" for order, days_left in state['wip']])
+                estimated_backlog_days = estimated_days_to_clear_backlog(len(state['backlog']), production_lines, production_cycle_time)
+
+                output_data.append({
+                    'Date': date,
+                    'Backlog from Previous Day': backlog_from_previous_day,
+                    'Production Cycle Time': production_cycle_time,
+                    'Number of Production Lines': production_lines,
+                    'New Customer Orders': new_orders,
+                    'WIP Orders': len(state['wip']),
+                    'Remaining Work Days on Orders in Progress': remaining_work_days,
+                    'Orders Finished': len(completed_orders),
+                    'Orders Pulled from Backlog': orders_pulled_from_backlog,
+                    'Idle Production Lines': idle_lines,
+                    'Estimated Days to Clear Backlog': estimated_backlog_days,
+                })
+
+            output_df = pd.DataFrame(output_data)
+            st.write("### Production Simulation Report")
+            st.dataframe(output_df)
+
+if __name__ == "__main__":
+    main()
