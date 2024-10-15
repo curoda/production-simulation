@@ -14,7 +14,7 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     order_id = 1  # Unique identifier for each order
 
     for day in range(1, num_days + 1):
-        # 1. Move completed orders from WIP to Completed
+        # 1. Decrease days left for WIP orders and move completed orders out of WIP
         completed_today = [order for (order, days_left) in wip if days_left <= 0]
         completed_orders_count += len(completed_today)
         wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
