@@ -5,7 +5,9 @@ import math
 
 def load_data(file_path):
     try:
-        return pd.read_csv(file_path)
+        data = pd.read_csv(file_path)
+        data.columns = data.columns.str.replace(' ', '_')  # Replace spaces with underscores in column names
+        return data
     except FileNotFoundError:
         st.error("The specified file was not found. Please check the file path and try again.")
         return None
