@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from collections import deque
 import math
+import matplotlib.pyplot as plt
 
 def load_data(file_path):
     try:
@@ -126,6 +127,19 @@ def main():
             output_df = pd.DataFrame(output_data)
             st.write("### Production Simulation Report")
             st.dataframe(output_df)
+
+            # Plotting the data
+            fig, ax = plt.subplots()
+            ax.plot(output_df['Date'], output_df['Backlog from Previous Day'], label='Backlog', marker='o')
+            ax.plot(output_df['Date'], output_df['New Customer Orders'], label='New Orders', marker='o')
+            ax.plot(output_df['Date'], output_df['WIP Orders'], label='WIP', marker='o')
+            ax.plot(output_df['Date'], output_df['Orders Finished'], label='Orders Finished', marker='o')
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Number of Orders')
+            ax.set_title('Production Metrics Over Time')
+            ax.legend()
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
