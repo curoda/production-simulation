@@ -13,6 +13,12 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     customer_wait_times = []
     order_id = 1  # Unique identifier for each order
 
+    # Day 0: Move orders to WIP from both backlog and new customer orders to fully utilize production lines
+    orders_to_start = min(num_production_lines, backlog + new_customer_orders_per_day)
+    backlog = max(0, backlog + new_customer_orders_per_day - orders_to_start)
+    wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
+    order_id += orders_to_start
+
     for day in range(1, num_days + 1):
         # 1. Decrease days left for WIP orders and move completed orders out of WIP
         completed_today = [order for (order, days_left) in wip if days_left <= 0]
@@ -23,10 +29,10 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
         idle_lines_today = max(0, num_production_lines - len(wip))
         orders_to_start = min(idle_lines_today, backlog)
         wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
-        backlog -= orders_to_start
+        backlog -= orders_to_start  # Decrement backlog as orders are moved to WIP
         order_id += orders_to_start
 
-        # 3. Add new customer orders to backlog
+        # 3. Add new customer orders to backlog (AFTER moving orders to WIP)
         backlog += new_customer_orders_per_day
 
         # 4. Track states for the day
