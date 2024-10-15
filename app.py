@@ -14,7 +14,7 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
 
     for day in range(1, num_days + 1):
         # Process work in progress (WIP)
-        completed_today = [order_id for (order_id, days_left) in wip if days_left == 0]
+        completed_today = [order_id for (order_id, days_left) in wip if days_left <= 0]
         wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
         
         idle_lines_today = max(0, num_production_lines - len(wip))
