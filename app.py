@@ -10,13 +10,12 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     idle_lines = []
     daily_backlog = [backlog]  # Day 0 with initial backlog
     customer_wait_times = []
-    wip_orders = [len(wip)]  # Track WIP orders on each day
     order_id = 1
 
     for day in range(1, num_days + 1):
         # Process work in progress (WIP)
-        completed_today = [order_id for (order_id, days_left) in wip if days_left == 1]
-        wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 1]
+        completed_today = [order_id for (order_id, days_left) in wip if days_left == 0]
+        wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
         
         idle_lines_today = max(0, num_production_lines - len(wip))
         
@@ -32,10 +31,9 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
         
         # Update daily statistics
         daily_backlog.append(backlog)
-        completed_orders.append(len(completed_today))  # Ensure completed orders are counted correctly
+        completed_orders.append(len(completed_today))  # Count completed orders correctly
         idle_lines.append(idle_lines_today)
         customer_wait_times.append(backlog / max(1, num_production_lines * production_cycle_time))
-        wip_orders.append(len(wip))  # Track WIP orders
 
         # Add new customer orders to the backlog
         backlog += new_customer_orders_per_day
@@ -44,7 +42,6 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     return pd.DataFrame({
         'Day': list(range(0, num_days + 1)),  # Adjusting for Day 0
         'Backlog': daily_backlog,
-        'WIP Orders': wip_orders,  # New column for WIP
         'Completed Orders': [0] + completed_orders,  # No orders completed on Day 0
         'Idle Production Lines': [num_production_lines] + idle_lines,  # Idle lines on Day 0
         'Customer Wait Time (days)': [0] + customer_wait_times  # No wait on Day 0
@@ -95,14 +92,5 @@ if st.button('Run Simulation'):
     ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
     ax.set_xlabel('Day')
     ax.set_ylabel('Wait Time (days)')
-    ax.legend()
-    st.pyplot(fig)
-
-    # Plotting WIP orders over time
-    st.subheader("WIP Orders Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['WIP Orders'], label='WIP Orders', color='green')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('WIP Orders')
     ax.legend()
     st.pyplot(fig)
