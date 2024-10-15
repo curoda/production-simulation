@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 # Function to simulate the production process
 def run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog):
-    backlog = initial_backlog  # Orders not yet started (State 1)
-    wip = []  # Orders in progress with (days_left) (State 2)
-    completed_orders_count = 0  # Orders completed (State 3)
+    backlog = initial_backlog  # Orders not yet started (Backlog)
+    wip = []  # Orders in progress with (order_id, days_left)
+    completed_orders_count = 0  # Completed orders count
     daily_backlog = [backlog]  # Track backlog per day
     daily_wip = [len(wip)]  # Track WIP per day
     daily_completed_orders = [completed_orders_count]  # Track completed orders per day
@@ -14,12 +14,12 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     order_id = 1  # Unique identifier for each order
 
     for day in range(1, num_days + 1):
-        # 1. Move orders from WIP to Completed if they have 0 days left
+        # 1. Move completed orders from WIP to Completed
         completed_today = [order for (order, days_left) in wip if days_left <= 0]
         completed_orders_count += len(completed_today)
-        wip = [(order, days_left - 1) for (order, days_left) in wip if days_left > 0]
+        wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
 
-        # 2. Move orders from backlog to WIP if production lines are available
+        # 2. Move new orders from backlog to WIP if production lines are available
         idle_lines_today = max(0, num_production_lines - len(wip))
         orders_to_start = min(idle_lines_today, backlog)
         wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
@@ -34,7 +34,7 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
         daily_wip.append(len(wip))
         daily_completed_orders.append(completed_orders_count)
 
-        # 5. Calculate customer wait time based on the backlog
+        # 5. Calculate customer wait time based on the backlog and production capacity
         customer_wait_times.append(backlog / max(1, num_production_lines * production_cycle_time))
 
     # Convert results to a DataFrame for display
@@ -54,34 +54,4 @@ with st.sidebar:
     st.header("Simulation Inputs")
     production_cycle_time = st.number_input('Production Cycle Time (in days)', min_value=0.1, value=5.0, step=0.1, format="%.1f")
     num_production_lines = st.number_input('Number of Production Lines', min_value=1, value=3)
-    new_customer_orders_per_day = st.number_input('Number of New Customer Orders per Day', min_value=0.1, value=1.0, step=0.1, format="%.1f")
-    num_days = st.slider('Simulation Time Frame (Number of Business Days)', min_value=1, max_value=100, value=30)
-    initial_backlog = st.number_input('Initial Backlog of Orders', min_value=0, value=20)
-
-# Run the simulation
-if st.button('Run Simulation'):
-    result = run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog)
-
-    # Output results
-    st.subheader("Simulation Results")
-    st.dataframe(result)
-
-    # Plotting backlog, WIP, and completed orders
-    st.subheader("Order States Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Backlog (New Orders)'], label='Backlog (New Orders)')
-    ax.plot(result['Day'], result['WIP Orders'], label='WIP Orders')
-    ax.plot(result['Day'], result['Completed Orders'], label='Completed Orders')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Orders')
-    ax.legend()
-    st.pyplot(fig)
-
-    # Plotting customer wait times separately
-    st.subheader("Customer Wait Times Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Wait Time (days)')
-    ax.legend()
-    st.pyplot(fig)
+    new_customer_orders_per_day = st.number_input('Number of New Customer Orders per Day', min_value=0.1, value=1
