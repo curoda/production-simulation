@@ -34,16 +34,16 @@ def add_new_orders(state, new_orders):
 def process_orders(state, production_lines, production_cycle_time):
     # Reduce remaining days for WIP orders
     new_completed_orders = []
-    for i in range(len(state['wip'])):
-        order, days_left = state['wip'][i]
+    updated_wip = deque()
+    for order, days_left in state['wip']:
         days_left -= 1
         if days_left > 0:
-            state['wip'][i] = (order, days_left)
+            updated_wip.append((order, days_left))
         else:
             new_completed_orders.append(order)
     
-    # Remove completed orders from WIP
-    state['wip'] = deque([(order, days_left) for order, days_left in state['wip'] if days_left > 0])
+    # Update WIP with remaining orders
+    state['wip'] = updated_wip
 
     # Mark completed orders
     state['completed_orders'].extend(new_completed_orders)
