@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
 # Function to simulate the production process
@@ -9,7 +8,7 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
     wip = []
     completed_orders = []
     idle_lines = []
-    daily_backlog = []
+    daily_backlog = [backlog]  # Day 0 with initial backlog
     customer_wait_times = []
     order_id = 1
 
@@ -27,6 +26,9 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
             order_id += 1
             idle_lines_today -= 1
         
+        # Ensure backlog doesn't go negative
+        backlog = max(0, backlog)
+        
         # Update daily statistics
         daily_backlog.append(backlog)
         completed_orders.append(len(completed_today))
@@ -38,11 +40,11 @@ def run_simulation(production_cycle_time, num_production_lines, new_customer_ord
 
     # Convert results to a DataFrame for display
     return pd.DataFrame({
-        'Day': list(range(1, num_days + 1)),
+        'Day': list(range(0, num_days + 1)),  # Adjusting for Day 0
         'Backlog': daily_backlog,
-        'Completed Orders': completed_orders,
-        'Idle Production Lines': idle_lines,
-        'Customer Wait Time (days)': customer_wait_times
+        'Completed Orders': [0] + completed_orders,  # No orders completed on Day 0
+        'Idle Production Lines': [num_production_lines] + idle_lines,  # Idle lines on Day 0
+        'Customer Wait Time (days)': [0] + customer_wait_times  # No wait on Day 0
     })
 
 # Streamlit app interface
@@ -75,16 +77,20 @@ if st.button('Run Simulation'):
     ax.legend()
     st.pyplot(fig)
 
-    # Plotting idle production lines and customer wait times
-    st.subheader("Idle Production Lines and Customer Wait Times")
+    # Plotting idle production lines separately
+    st.subheader("Idle Production Lines Over Time")
     fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Idle Production Lines'], label='Idle Production Lines')
-    ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
+    ax.plot(result['Day'], result['Idle Production Lines'], label='Idle Production Lines', color='blue')
     ax.set_xlabel('Day')
-    ax.set_ylabel('Lines / Wait Time (days)')
+    ax.set_ylabel('Idle Lines')
     ax.legend()
     st.pyplot(fig)
 
-    # Order summary
-    st.subheader("Order Summary Table")
-    st.write(result)
+    # Plotting customer wait times separately
+    st.subheader("Customer Wait Times Over Time")
+    fig, ax = plt.subplots()
+    ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
+    ax.set_xlabel('Day')
+    ax.set_ylabel('Wait Time (days)')
+    ax.legend()
+    st.pyplot(fig)
