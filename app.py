@@ -4,46 +4,45 @@ import matplotlib.pyplot as plt
 
 # Function to simulate the production process
 def run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog):
-    backlog = initial_backlog
-    wip = []  # List of WIP orders with (order_id, days_left)
-    completed_orders = []
-    idle_lines = []
-    daily_backlog = [backlog]  # Day 0 with initial backlog
+    backlog = initial_backlog  # Orders not yet started (State 1)
+    wip = []  # Orders in progress with (days_left) (State 2)
+    completed_orders_count = 0  # Orders completed (State 3)
+    daily_backlog = [backlog]  # Track backlog per day
+    daily_wip = [len(wip)]  # Track WIP per day
+    daily_completed_orders = [completed_orders_count]  # Track completed orders per day
     customer_wait_times = []
-    order_id = 1
+    order_id = 1  # Unique identifier for each order
 
     for day in range(1, num_days + 1):
-        # Process work in progress (WIP)
-        completed_today = [order_id for (order_id, days_left) in wip if days_left <= 0]
-        wip = [(order_id, days_left - 1) for (order_id, days_left) in wip if days_left > 0]
-        
-        idle_lines_today = max(0, num_production_lines - len(wip))
-        
-        # Pull orders from the backlog if lines are available
-        while idle_lines_today > 0 and backlog > 0:
-            wip.append((order_id, production_cycle_time))
-            backlog -= 1
-            order_id += 1
-            idle_lines_today -= 1
-        
-        # Ensure backlog doesn't go negative
-        backlog = max(0, backlog)
-        
-        # Update daily statistics
-        daily_backlog.append(backlog)
-        completed_orders.append(len(completed_today))  # Count completed orders correctly
-        idle_lines.append(idle_lines_today)
-        customer_wait_times.append(backlog / max(1, num_production_lines * production_cycle_time))
+        # 1. Move orders from WIP to Completed if they have 0 days left
+        completed_today = [order for (order, days_left) in wip if days_left == 0]
+        completed_orders_count += len(completed_today)
+        wip = [(order, days_left - 1) for (order, days_left) in wip if days_left > 0]
 
-        # Add new customer orders to the backlog
+        # 2. Move orders from backlog to WIP if production lines are available
+        idle_lines_today = max(0, num_production_lines - len(wip))
+        orders_to_start = min(idle_lines_today, backlog)
+        wip.extend([(order_id + i, production_cycle_time) for i in range(orders_to_start)])
+        backlog -= orders_to_start
+        order_id += orders_to_start
+
+        # 3. Add new customer orders to backlog
         backlog += new_customer_orders_per_day
+
+        # 4. Track states for the day
+        daily_backlog.append(backlog)
+        daily_wip.append(len(wip))
+        daily_completed_orders.append(completed_orders_count)
+
+        # 5. Calculate customer wait time based on the backlog
+        customer_wait_times.append(backlog / max(1, num_production_lines * production_cycle_time))
 
     # Convert results to a DataFrame for display
     return pd.DataFrame({
         'Day': list(range(0, num_days + 1)),  # Adjusting for Day 0
-        'Backlog': daily_backlog,
-        'Completed Orders': [0] + completed_orders,  # No orders completed on Day 0
-        'Idle Production Lines': [num_production_lines] + idle_lines,  # Idle lines on Day 0
+        'Backlog (New Orders)': daily_backlog,
+        'WIP Orders': daily_wip,
+        'Completed Orders': daily_completed_orders,
         'Customer Wait Time (days)': [0] + customer_wait_times  # No wait on Day 0
     })
 
@@ -67,22 +66,14 @@ if st.button('Run Simulation'):
     st.subheader("Simulation Results")
     st.dataframe(result)
 
-    # Plotting backlog and completed orders
-    st.subheader("Backlog and Completed Orders Over Time")
+    # Plotting backlog, WIP, and completed orders
+    st.subheader("Order States Over Time")
     fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Backlog'], label='Backlog')
+    ax.plot(result['Day'], result['Backlog (New Orders)'], label='Backlog (New Orders)')
+    ax.plot(result['Day'], result['WIP Orders'], label='WIP Orders')
     ax.plot(result['Day'], result['Completed Orders'], label='Completed Orders')
     ax.set_xlabel('Day')
     ax.set_ylabel('Orders')
-    ax.legend()
-    st.pyplot(fig)
-
-    # Plotting idle production lines separately
-    st.subheader("Idle Production Lines Over Time")
-    fig, ax = plt.subplots()
-    ax.plot(result['Day'], result['Idle Production Lines'], label='Idle Production Lines', color='blue')
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Idle Lines')
     ax.legend()
     st.pyplot(fig)
 
