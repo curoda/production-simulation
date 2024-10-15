@@ -54,4 +54,34 @@ with st.sidebar:
     st.header("Simulation Inputs")
     production_cycle_time = st.number_input('Production Cycle Time (in days)', min_value=0.1, value=5.0, step=0.1, format="%.1f")
     num_production_lines = st.number_input('Number of Production Lines', min_value=1, value=3)
-    new_customer_orders_per_day = st.number_input('Number of New Customer Orders per Day', min_value=0.1, value=1
+    new_customer_orders_per_day = st.number_input('Number of New Customer Orders per Day', min_value=0.1, value=1.0, step=0.1, format="%.1f")
+    num_days = st.slider('Simulation Time Frame (Number of Business Days)', min_value=1, max_value=100, value=30)
+    initial_backlog = st.number_input('Initial Backlog of Orders', min_value=0, value=20)
+
+# Run the simulation
+if st.button('Run Simulation'):
+    result = run_simulation(production_cycle_time, num_production_lines, new_customer_orders_per_day, num_days, initial_backlog)
+
+    # Output results
+    st.subheader("Simulation Results")
+    st.dataframe(result)
+
+    # Plotting backlog, WIP, and completed orders
+    st.subheader("Order States Over Time")
+    fig, ax = plt.subplots()
+    ax.plot(result['Day'], result['Backlog (New Orders)'], label='Backlog (New Orders)')
+    ax.plot(result['Day'], result['WIP Orders'], label='WIP Orders')
+    ax.plot(result['Day'], result['Completed Orders'], label='Completed Orders')
+    ax.set_xlabel('Day')
+    ax.set_ylabel('Orders')
+    ax.legend()
+    st.pyplot(fig)
+
+    # Plotting customer wait times separately
+    st.subheader("Customer Wait Times Over Time")
+    fig, ax = plt.subplots()
+    ax.plot(result['Day'], result['Customer Wait Time (days)'], label='Customer Wait Time (days)', color='orange')
+    ax.set_xlabel('Day')
+    ax.set_ylabel('Wait Time (days)')
+    ax.legend()
+    st.pyplot(fig)
