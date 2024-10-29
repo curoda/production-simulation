@@ -153,7 +153,7 @@ def main():
             min_wait_time = min(state['customer_wait_times']) if state['customer_wait_times'] else 0
             max_wait_time = max(state['customer_wait_times']) if state['customer_wait_times'] else 0
             total_orders_completed = len(state['completed_orders'])
-            starting_backlog = len(output_data[0]['Backlog from Previous Day']) if output_data else 0
+            starting_backlog = output_data[0]['Backlog from Previous Day'] if output_data else 0
             ending_backlog = len(state['backlog'])
 
             # Displaying summary metrics
