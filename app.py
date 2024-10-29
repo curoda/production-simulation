@@ -25,14 +25,20 @@ def initialize_state():
         'wip': deque(),
         'completed_orders': [],
         'order_counter': 1,
+        'customer_wait_times': [],
     }
 
 def add_new_orders(state, new_orders):
     for _ in range(new_orders):
-        state['backlog'].append(f"Order{state['order_counter']}")
+        state['backlog'].append((f"Order{state['order_counter']}", 0))  # Add order with initial wait time 0
         state['order_counter'] += 1
 
 def process_orders(state, production_lines, production_cycle_time):
+    # Increase wait time for backlog orders
+    for i in range(len(state['backlog'])):
+        order, wait_time = state['backlog'][i]
+        state['backlog'][i] = (order, wait_time + 1)
+
     # Reduce remaining days for WIP orders
     new_completed_orders = []
     updated_wip = deque()
@@ -54,8 +60,9 @@ def process_orders(state, production_lines, production_cycle_time):
     idle_production_lines = max(production_lines - current_wip_count, 0)
     orders_pulled_from_backlog = 0
     while state['backlog'] and idle_production_lines > 0:
-        order = state['backlog'].popleft()
+        order, wait_time = state['backlog'].popleft()
         state['wip'].append((order, production_cycle_time))
+        state['customer_wait_times'].append(wait_time + production_cycle_time)  # Record total wait time
         idle_production_lines -= 1
         orders_pulled_from_backlog += 1
 
@@ -140,6 +147,23 @@ def main():
             ax.legend()
             plt.xticks(rotation=45)
             st.pyplot(fig)
+
+            # Calculating summary metrics
+            average_wait_time = sum(state['customer_wait_times']) / len(state['customer_wait_times']) if state['customer_wait_times'] else 0
+            min_wait_time = min(state['customer_wait_times']) if state['customer_wait_times'] else 0
+            max_wait_time = max(state['customer_wait_times']) if state['customer_wait_times'] else 0
+            total_orders_completed = len(state['completed_orders'])
+            starting_backlog = len(output_data[0]['Backlog from Previous Day']) if output_data else 0
+            ending_backlog = len(state['backlog'])
+
+            # Displaying summary metrics
+            st.write("### Summary Metrics")
+            st.write(f"**Average Customer Wait Time:** {average_wait_time} days")
+            st.write(f"**Minimum Customer Wait Time:** {min_wait_time} days")
+            st.write(f"**Maximum Customer Wait Time:** {max_wait_time} days")
+            st.write(f"**Total Number of Orders Completed:** {total_orders_completed}")
+            st.write(f"**Starting Backlog:** {starting_backlog}")
+            st.write(f"**Ending Backlog:** {ending_backlog}")
 
 if __name__ == "__main__":
     main()
