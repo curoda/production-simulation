@@ -158,7 +158,7 @@ def main():
 
             # Displaying summary metrics
             st.write("### Summary Metrics")
-            st.write(f"**Average Customer Wait Time:** {average_wait_time} days")
+            st.write(f"**Average Customer Wait Time:** {average_wait_time:.2f} days")
             st.write(f"**Minimum Customer Wait Time:** {min_wait_time} days")
             st.write(f"**Maximum Customer Wait Time:** {max_wait_time} days")
             st.write(f"**Total Number of Orders Completed:** {total_orders_completed}")
