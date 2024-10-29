@@ -76,18 +76,30 @@ def estimated_days_to_clear_backlog(backlog_size, production_lines, production_c
 def main():
     st.title("Production Simulation App")
     st.sidebar.write("### Sample CSV File Format")
+    st.sidebar.write("""
+    Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders
+    2023-01-01,5,3,10
+    2023-01-02,5,3,8
+    2023-01-03,5,3,12
+    ...
+    """)
     st.sidebar.download_button(
         label="Download Sample CSV",
         data="Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders\n2023-01-01,5,3,10\n2023-01-02,5,3,8\n2023-01-03,5,3,12\n",
         file_name="sample_input.csv",
         mime="text/csv"
     )
+    starting_backlog = st.sidebar.number_input("Enter Starting Backlog", min_value=0, value=0, step=1)
     uploaded_file = st.sidebar.file_uploader("Upload Input CSV File", type="csv")
 
     if uploaded_file:
         data = load_data(uploaded_file)
         if data is not None:
             state = initialize_state()
+            # Initialize starting backlog
+            for _ in range(starting_backlog):
+                state['backlog'].append((f"Order{state['order_counter']}", 0))
+                state['order_counter'] += 1
             output_data = []
 
             for row in data.itertuples():
@@ -142,7 +154,7 @@ def main():
             st.pyplot(fig)
 
             # Calculating summary metrics
-            average_wait_time = sum(state['customer_wait_times']) / len(state['customer_wait_times']) if state['customer_wait_times'] else 0
+            average_wait_time = round(sum(state['customer_wait_times']) / len(state['customer_wait_times']), 2) if state['customer_wait_times'] else 0
             min_wait_time = min(state['customer_wait_times']) if state['customer_wait_times'] else 0
             max_wait_time = max(state['customer_wait_times']) if state['customer_wait_times'] else 0
             total_orders_completed = len(state['completed_orders'])
