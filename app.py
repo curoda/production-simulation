@@ -76,13 +76,6 @@ def estimated_days_to_clear_backlog(backlog_size, production_lines, production_c
 def main():
     st.title("Production Simulation App")
     st.sidebar.write("### Sample CSV File Format")
-    st.sidebar.write("""
-    Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders
-    2023-01-01,5,3,10
-    2023-01-02,5,3,8
-    2023-01-03,5,3,12
-    ...
-    """)
     st.sidebar.download_button(
         label="Download Sample CSV",
         data="Date,Production Cycle Time,Number of Production Lines,Number of New Customer Orders\n2023-01-01,5,3,10\n2023-01-02,5,3,8\n2023-01-03,5,3,12\n",
